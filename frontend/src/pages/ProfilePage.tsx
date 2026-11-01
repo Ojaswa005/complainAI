@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -11,7 +11,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { api } from '../services/api';
-import { User, Complaint } from '../types';
+import { User, Complaint, UserReplyItem } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import { ComplaintCard } from '../components/feed/ComplaintCard';
@@ -21,11 +21,14 @@ export const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const { currentUser } = useAuth();
   const { openEditProfileModal, showToast } = useModal();
+  const navigate = useNavigate();
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Complaint[]>([]);
-  const [activeTab, setActiveTab] = useState<'posts' | 'replies' | 'liked' | 'saved'>('posts');
+  const [replies, setReplies] = useState<UserReplyItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'replies' | 'liked' | 'saved'>('posts');
   const [loading, setLoading] = useState<boolean>(true);
+  const [tabLoading, setTabLoading] = useState<boolean>(false);
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followersCount, setFollowersCount] = useState<number>(0);
 
@@ -48,9 +51,53 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const fetchTabData = async (tab: 'posts' | 'reposts' | 'replies' | 'liked' | 'saved') => {
+    if (!username) return;
+    setTabLoading(true);
+    try {
+      if (tab === 'posts') {
+        const p = await api.getPosts({ author: username });
+        setPosts(p.posts);
+      } else if (tab === 'reposts') {
+        const r = await api.getUserReposts(username);
+        setPosts(r);
+      } else if (tab === 'replies') {
+        const rep = await api.getUserReplies(username);
+        setReplies(rep);
+      } else if (tab === 'liked') {
+        const l = await api.getUserLikedPosts(username);
+        setPosts(l);
+      } else if (tab === 'saved') {
+        const s = await api.getUserSavedPosts(username);
+        setPosts(s);
+      }
+    } catch (err) {
+      console.error('Failed to load tab data', err);
+    } finally {
+      setTabLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
   }, [username]);
+
+  useEffect(() => {
+    if (profileUser) {
+      fetchTabData(activeTab);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleCreated = (e: any) => {
+      const newPost = e.detail;
+      if (newPost && (activeTab === 'posts' || (newPost.repost_of_id && activeTab === 'reposts'))) {
+        setPosts((prev) => [newPost, ...prev]);
+      }
+    };
+    window.addEventListener('complain_created', handleCreated);
+    return () => window.removeEventListener('complain_created', handleCreated);
+  }, [activeTab]);
 
   const handleFollowToggle = async () => {
     if (!currentUser) {
@@ -189,29 +236,70 @@ export const ProfilePage: React.FC = () => {
 
         </div>
 
-        {/* Profile Tabs: Posts | Replies | Liked | Saved */}
-        <div className="flex border-t border-slate-100 px-4 bg-slate-50/50">
-          {(['posts', 'replies', 'liked', 'saved'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-bold capitalize transition-all relative ${
-                activeTab === tab ? 'text-orange-600' : 'text-slate-400 hover:text-slate-700'
-              }`}
-            >
-              <span>{tab}</span>
-              {activeTab === tab && (
-                <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-orange-500 rounded-full" />
-              )}
-            </button>
-          ))}
+        {/* Profile Tabs: Posts | Reposts | Replies | Liked | Saved */}
+        <div className="flex border-t border-slate-100 px-2 sm:px-4 bg-slate-50/50 overflow-x-auto no-scrollbar">
+          {(['posts', 'reposts', 'replies', 'liked', 'saved'] as const).map((tab) => {
+            if (tab === 'saved' && currentUser?.id !== profileUser.id) return null;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-3 px-3 text-xs font-bold capitalize transition-all relative flex-1 text-center whitespace-nowrap cursor-pointer ${
+                  activeTab === tab ? 'text-orange-600' : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                <span>{tab}</span>
+                {activeTab === tab && (
+                  <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-orange-500 rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
       </div>
 
       {/* Tab Feed Content */}
       <div className="space-y-4">
-        {posts.length === 0 ? (
+        {tabLoading ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-orange-500" />
+            <span>Loading {activeTab}...</span>
+          </div>
+        ) : activeTab === 'replies' ? (
+          replies.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center text-slate-400 text-xs">
+              No replies in this tab yet.
+            </div>
+          ) : (
+            replies.map((rep) => (
+              <div 
+                key={rep.id} 
+                onClick={() => navigate(`/complaint/${rep.post_id}`)}
+                className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-soft hover:shadow-card transition-all cursor-pointer space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getMediaUrl(profileUser.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${profileUser.username}`}
+                    alt={profileUser.display_name}
+                    className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-100"
+                  />
+                  <span className="text-xs font-bold text-slate-800">{profileUser.display_name}</span>
+                  <span className="text-[11px] text-slate-400">replied</span>
+                </div>
+                <p className="text-xs text-slate-800 leading-relaxed font-normal">
+                  {rep.content}
+                </p>
+                {rep.post && (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[11px] text-slate-500 line-clamp-2">
+                    <span className="font-semibold text-slate-700">Original complaint: </span>
+                    {rep.post.content}
+                  </div>
+                )}
+              </div>
+            ))
+          )
+        ) : posts.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center text-slate-400 text-xs">
             No complaints in this tab yet.
           </div>

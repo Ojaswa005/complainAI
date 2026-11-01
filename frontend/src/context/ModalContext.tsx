@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { Complaint } from '../types';
 
 interface Toast {
   id: string;
@@ -48,6 +49,11 @@ interface ModalContextType {
   openFollowListModal: (options: FollowListOptions) => void;
   closeFollowListModal: () => void;
 
+  isQuoteModalOpen: boolean;
+  quoteTargetPost: Complaint | null;
+  openQuoteModal: (post: Complaint) => void;
+  closeQuoteModal: () => void;
+
   toasts: Toast[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
@@ -68,6 +74,9 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [confirmOptions, setConfirmOptions] = useState<ConfirmOptions | null>(null);
   const [followListOptions, setFollowListOptions] = useState<FollowListOptions | null>(null);
+
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [quoteTargetPost, setQuoteTargetPost] = useState<Complaint | null>(null);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -118,6 +127,16 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setFollowListOptions(null);
   };
 
+  const openQuoteModal = (post: Complaint) => {
+    setQuoteTargetPost(post);
+    setIsQuoteModalOpen(true);
+  };
+
+  const closeQuoteModal = () => {
+    setIsQuoteModalOpen(false);
+    setQuoteTargetPost(null);
+  };
+
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -154,6 +173,10 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         followListOptions,
         openFollowListModal,
         closeFollowListModal,
+        isQuoteModalOpen,
+        quoteTargetPost,
+        openQuoteModal,
+        closeQuoteModal,
         toasts,
         showToast,
         removeToast,

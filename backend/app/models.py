@@ -116,6 +116,9 @@ class Post(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Repost / Quote relationship
+    repost_of_id = Column(String(36), ForeignKey("posts.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Relationships
     author = relationship("User", back_populates="posts")
     topics = relationship("Topic", secondary=post_topics, back_populates="posts")
@@ -124,6 +127,7 @@ class Post(Base):
     bookmarks = relationship("Bookmark", back_populates="post", cascade="all, delete-orphan")
     reposts = relationship("Repost", back_populates="post", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="post", cascade="all, delete-orphan")
+    repost_of = relationship("Post", remote_side=[id], foreign_keys=[repost_of_id], backref="quote_reposts")
 
 class Reply(Base):
     __tablename__ = "replies"

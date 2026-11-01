@@ -16,6 +16,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { ConfirmModal } from './components/common/ConfirmModal';
 import { FollowListModal } from './components/profile/FollowListModal';
+import { QuoteRepostModal } from './components/feed/QuoteRepostModal';
 
 import { LandingPage } from './pages/LandingPage';
 import { HomePage } from './pages/HomePage';
@@ -86,6 +87,7 @@ export const App: React.FC = () => {
           <EditProfileModal />
           <ConfirmModal />
           <FollowListModal />
+          <QuoteRepostModal />
           <ToastContainer />
         </ModalProvider>
       </AuthProvider>

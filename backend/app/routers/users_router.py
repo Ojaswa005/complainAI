@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc
 from typing import List, Optional
 from ..database import get_db
-from ..models import User, Follow, Notification, Post, Reply, Reaction, Bookmark
+from ..models import User, Follow, Notification, Post, Reply, Reaction, Bookmark, Repost
 from ..schemas import (
     UserResponse,
     UserProfileResponse,
@@ -223,6 +223,25 @@ def get_user_saved_posts(
     
     ordered_posts = [post_map[pid] for pid in post_ids if pid in post_map]
     return [serialize_post(p, current_user.id, db) for p in ordered_posts]
+
+@router.get("/{username}/reposts", response_model=List[PostResponse])
+def get_user_reposts(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    user = db.query(User).filter(User.username.ilike(username)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    reposts = db.query(Repost).filter(Repost.user_id == user.id).order_by(desc(Repost.created_at)).all()
+    post_ids = [r.post_id for r in reposts]
+    posts = db.query(Post).filter(Post.id.in_(post_ids), Post.is_deleted == False).all()
+    post_map = {p.id: p for p in posts}
+    
+    current_user_id = current_user.id if current_user else None
+    ordered_posts = [post_map[pid] for pid in post_ids if pid in post_map]
+    return [serialize_post(p, current_user_id, db, reposted_by=user) for p in ordered_posts]
 
 @router.post("/{username}/follow")
 def toggle_follow(
