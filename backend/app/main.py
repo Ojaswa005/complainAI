@@ -42,6 +42,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
+import mimetypes
+
+# Ensure Windows recognizes webp and other image mime types properly
+mimetypes.add_type("image/webp", ".webp")
+mimetypes.add_type("image/jpeg", ".jpg")
+mimetypes.add_type("image/jpeg", ".jpeg")
+mimetypes.add_type("image/png", ".png")
+
 # Mount local uploads directory for safe image serving
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

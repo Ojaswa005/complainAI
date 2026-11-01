@@ -15,6 +15,7 @@ import { User, Complaint } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import { ComplaintCard } from '../components/feed/ComplaintCard';
+import { getMediaUrl } from '../utils/image';
 
 export const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
@@ -106,7 +107,10 @@ export const ProfilePage: React.FC = () => {
       <div className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-soft">
         
         {/* Banner with dark sleek curve gradient matching mockup */}
-        <div className="h-32 sm:h-40 bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950 relative overflow-hidden">
+        <div 
+          className="h-32 sm:h-40 bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950 relative overflow-hidden bg-cover bg-center"
+          style={profileUser.banner_url ? { backgroundImage: `url("${getMediaUrl(profileUser.banner_url)}")` } : undefined}
+        >
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#F97316_1px,transparent_1px)] [background-size:16px_16px]" />
           <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-orange-500/20 rounded-full blur-2xl" />
         </div>
@@ -118,7 +122,7 @@ export const ProfilePage: React.FC = () => {
           <div className="flex items-end justify-between -mt-14 sm:-mt-16 mb-4">
             <div className="relative">
               <img
-                src={profileUser.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${profileUser.username}`}
+                src={getMediaUrl(profileUser.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${profileUser.username}`}
                 alt={profileUser.display_name}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-white shadow-md bg-white"
               />

@@ -17,6 +17,7 @@ import { Complaint } from '../../types';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
+import { getMediaUrl } from '../../utils/image';
 
 interface ComplaintCardProps {
   complaint: Complaint;
@@ -198,7 +199,7 @@ export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDelet
             className="relative flex-shrink-0"
           >
             <img
-              src={complaint.author.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${complaint.author.username}`}
+              src={getMediaUrl(complaint.author.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${complaint.author.username}`}
               alt={complaint.author.display_name}
               className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100 group-hover:ring-orange-100 transition-all"
             />
@@ -299,9 +300,10 @@ export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDelet
 
       {/* Attached Images (1-4 images) */}
       {(() => {
-        const postImages = (complaint.images && complaint.images.length > 0)
+        const rawImages = (complaint.images && complaint.images.length > 0)
           ? complaint.images
           : (complaint.image_url ? [complaint.image_url] : []);
+        const postImages = rawImages.map((u) => getMediaUrl(u)).filter(Boolean);
         
         if (postImages.length === 0) return null;
 

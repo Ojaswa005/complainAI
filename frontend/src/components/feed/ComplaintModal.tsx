@@ -18,6 +18,7 @@ import { useModal } from '../../context/ModalContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Complaint } from '../../types';
+import { getMediaUrl } from '../../utils/image';
 
 interface ComplaintModalProps {
   onCreated?: (post: Complaint) => void;
@@ -310,7 +311,7 @@ export const ComplaintModal: React.FC<ComplaintModalProps> = ({ onCreated }) => 
                 {images.map((img, idx) => (
                   <div key={idx} className="relative group rounded-xl overflow-hidden aspect-square border border-slate-200 bg-slate-100">
                     <img 
-                      src={img} 
+                      src={getMediaUrl(img)} 
                       alt={`Attached ${idx + 1}`} 
                       className="w-full h-full object-cover"
                       onError={(e) => {

@@ -31,6 +31,7 @@ export interface Community {
   id: string;
   name: string;
   slug: string;
+  topic_slug?: string;
   description?: string;
   icon?: string;
   color?: string;

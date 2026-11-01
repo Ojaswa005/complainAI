@@ -3,6 +3,7 @@ import { X, Upload, Trash2, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { useModal } from '../../context/ModalContext';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import { getMediaUrl } from '../../utils/image';
 
 export const EditProfileModal: React.FC = () => {
   const { isEditProfileModalOpen, closeEditProfileModal, showToast } = useModal();
@@ -130,7 +131,7 @@ export const EditProfileModal: React.FC = () => {
             <div 
               className="h-28 rounded-2xl overflow-hidden relative border border-slate-200 flex items-center justify-center bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950"
               style={{
-                backgroundImage: bannerUrl ? `url("${bannerUrl}")` : undefined,
+                backgroundImage: bannerUrl ? `url("${getMediaUrl(bannerUrl)}")` : undefined,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
@@ -187,7 +188,7 @@ export const EditProfileModal: React.FC = () => {
             </label>
             <div className="flex items-center gap-3">
               <img
-                src={avatarUrl || currentUser.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.username}`}
+                src={getMediaUrl(avatarUrl) || getMediaUrl(currentUser.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.username}`}
                 alt="Avatar preview"
                 className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-100 flex-shrink-0"
               />
