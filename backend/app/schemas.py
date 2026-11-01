@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 
 # --- User Schemas ---
@@ -68,12 +68,13 @@ class TopicResponse(BaseModel):
 
 # --- Post Schemas ---
 class PostCreate(BaseModel):
-    content: str = Field(..., min_length=5, max_length=1000)
+    content: str = Field(..., min_length=1, max_length=1000)
     mood: Optional[str] = None
     tool_tag: Optional[str] = None
     image_url: Optional[str] = None
     images: Optional[List[str]] = []
     topics: Optional[List[str]] = [] # list of topic slugs or names
+    repost_of_id: Optional[str] = None
 
 class PostResponse(BaseModel):
     id: str
@@ -97,6 +98,11 @@ class PostResponse(BaseModel):
     is_liked: bool = False
     is_bookmarked: bool = False
     is_reposted: bool = False
+
+    # Repost / Quote Repost additions
+    repost_of_id: Optional[str] = None
+    repost_of: Optional[Any] = None
+    reposted_by: Optional[UserResponse] = None
 
     class Config:
         from_attributes = True

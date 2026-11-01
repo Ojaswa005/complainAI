@@ -5,14 +5,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, or_
 from typing import Optional, List
 from ..database import get_db
-from ..models import Post, User, Topic, Reaction, Bookmark, Repost, Follow
-from ..schemas import PostCreate, PostResponse, PostListResponse
+from ..models import Post, User, Topic, Reaction, Bookmark, Repost, Follow, Notification
+from ..schemas import PostCreate, PostResponse, PostListResponse, UserResponse
 from ..auth import get_current_user, get_optional_user
 from ..services.image_service import validate_url_ssrf_safe
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
-def serialize_post(post: Post, current_user_id: Optional[str] = None, db: Session = None) -> PostResponse:
+def serialize_post(
+    post: Post, 
+    current_user_id: Optional[str] = None, 
+    db: Session = None,
+    include_repost_of: bool = True,
+    reposted_by: Optional[User] = None
+) -> PostResponse:
     is_liked = False
     is_bookmarked = False
     is_reposted = False
@@ -48,6 +54,14 @@ def serialize_post(post: Post, current_user_id: Optional[str] = None, db: Sessio
     if created_at and created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
 
+    serialized_repost_of = None
+    if include_repost_of and getattr(post, 'repost_of_id', None) and post.repost_of and not post.repost_of.is_deleted:
+        serialized_repost_of = serialize_post(post.repost_of, current_user_id, db, include_repost_of=False)
+
+    serialized_reposted_by = None
+    if reposted_by:
+        serialized_reposted_by = UserResponse.from_orm(reposted_by)
+
     return PostResponse(
         id=post.id,
         content=post.content,
@@ -66,7 +80,10 @@ def serialize_post(post: Post, current_user_id: Optional[str] = None, db: Sessio
         topics=post.topics,
         is_liked=is_liked,
         is_bookmarked=is_bookmarked,
-        is_reposted=is_reposted
+        is_reposted=is_reposted,
+        repost_of_id=getattr(post, 'repost_of_id', None),
+        repost_of=serialized_repost_of,
+        reposted_by=serialized_reposted_by
     )
 
 @router.get("", response_model=PostListResponse)
@@ -83,13 +100,51 @@ def get_posts(
 ):
     query = db.query(Post).filter(Post.is_deleted == False)
     
-    # Filter by author
+    # Filter by author (includes authored posts + simple reposts)
     if author:
         user = db.query(User).filter(User.username.ilike(author)).first()
-        if user:
-            query = query.filter(Post.author_id == user.id)
-        else:
+        if not user:
             return PostListResponse(posts=[], total=0, has_more=False)
+        
+        authored_posts = db.query(Post).filter(
+            Post.author_id == user.id,
+            Post.is_deleted == False
+        ).all()
+
+        user_reposts = db.query(Repost).filter(Repost.user_id == user.id).all()
+        repost_time_map = {r.post_id: r.created_at for r in user_reposts}
+        reposted_ids = [r.post_id for r in user_reposts]
+
+        reposted_posts = []
+        if reposted_ids:
+            reposted_posts = db.query(Post).filter(
+                Post.id.in_(reposted_ids),
+                Post.is_deleted == False
+            ).all()
+
+        timeline_items = []
+        for p in authored_posts:
+            timeline_items.append((p.created_at, p, None))
+        for p in reposted_posts:
+            if p.author_id == user.id:
+                continue
+            rep_time = repost_time_map.get(p.id, p.created_at)
+            timeline_items.append((rep_time, p, user))
+
+        timeline_items.sort(key=lambda x: x[0], reverse=True)
+        total = len(timeline_items)
+        page_items = timeline_items[skip:skip + limit]
+
+        current_user_id = current_user.id if current_user else None
+        serialized = [
+            serialize_post(item[1], current_user_id, db, reposted_by=item[2])
+            for item in page_items
+        ]
+        return PostListResponse(
+            posts=serialized,
+            total=total,
+            has_more=(skip + limit) < total
+        )
             
     # Filter by topic
     if topic:
@@ -211,6 +266,13 @@ def create_post(
         elif img_u.startswith("/uploads/"):
             images_list.append(img_u)
 
+    # Check if this is a quote repost
+    quoted_post = None
+    if payload.repost_of_id:
+        quoted_post = db.query(Post).filter(Post.id == payload.repost_of_id, Post.is_deleted == False).first()
+        if not quoted_post:
+            raise HTTPException(status_code=404, detail="Quoted complaint not found")
+
     primary_image = images_list[0] if images_list else None
 
     post = Post(
@@ -220,11 +282,28 @@ def create_post(
         tool_tag=payload.tool_tag,
         image_url=primary_image,
         images=json.dumps(images_list) if images_list else None,
+        repost_of_id=payload.repost_of_id if quoted_post else None,
         created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         topics=assigned_topics
     )
     
     current_user.complaints_count += 1
+    if quoted_post:
+        quoted_post.reposts_count += 1
+        existing_rp = db.query(Repost).filter(Repost.post_id == quoted_post.id, Repost.user_id == current_user.id).first()
+        if not existing_rp:
+            new_rp = Repost(user_id=current_user.id, post_id=quoted_post.id)
+            db.add(new_rp)
+
+        if quoted_post.author_id != current_user.id:
+            notif = Notification(
+                user_id=quoted_post.author_id,
+                actor_id=current_user.id,
+                type="repost",
+                post_id=quoted_post.id
+            )
+            db.add(notif)
+
     db.add(post)
     db.commit()
     db.refresh(post)

@@ -32,6 +32,11 @@ def ensure_schema_migrations():
             conn.commit()
         except Exception:
             pass
+        try:
+            conn.execute(sa.text("ALTER TABLE posts ADD COLUMN repost_of_id VARCHAR(36);"))
+            conn.commit()
+        except Exception:
+            pass
 
 ensure_schema_migrations()
 Base.metadata.create_all(bind=engine)

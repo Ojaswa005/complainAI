@@ -28,3 +28,10 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+# SQLite database
+backend/complain_ai.db
+backend/*.db
+
+# Python cache
+__pycache__/
+*.py[cod]
