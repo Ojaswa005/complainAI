@@ -58,6 +58,9 @@ export interface Complaint {
   is_liked: boolean;
   is_bookmarked: boolean;
   is_reposted: boolean;
+  repost_of_id?: string;
+  repost_of?: Complaint;
+  reposted_by?: User;
 }
 
 export interface Reply {

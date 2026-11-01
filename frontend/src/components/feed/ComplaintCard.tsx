@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Heart, 
@@ -11,7 +11,8 @@ import {
   Flag, 
   Check, 
   Bot,
-  Sparkles
+  Sparkles,
+  Quote
 } from 'lucide-react';
 import { Complaint } from '../../types';
 import { api } from '../../services/api';
@@ -26,7 +27,7 @@ interface ComplaintCardProps {
 
 export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDeleted }) => {
   const { currentUser } = useAuth();
-  const { showToast, openReportModal, openConfirmModal } = useModal();
+  const { showToast, openReportModal, openConfirmModal, openQuoteModal } = useModal();
   const navigate = useNavigate();
 
   const [isLiked, setIsLiked] = useState(complaint.is_liked);
@@ -39,7 +40,24 @@ export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDelet
   const [repostsCount, setRepostsCount] = useState(complaint.reposts_count);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isRepostMenuOpen, setIsRepostMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const repostMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (repostMenuRef.current && !repostMenuRef.current.contains(e.target as Node)) {
+        setIsRepostMenuOpen(false);
+      }
+    };
+    if (isRepostMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isRepostMenuOpen]);
 
   const formatTimestamp = (dateStr: string) => {
     try {
@@ -190,6 +208,20 @@ export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDelet
       onClick={() => navigate(`/complaint/${complaint.id}`)}
       className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-soft hover:shadow-card transition-all duration-200 cursor-pointer relative group"
     >
+      {/* Reposted By Header (if surfaced via repost) */}
+      {complaint.reposted_by && (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-2.5 -mt-1 pl-1">
+          <Repeat className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+          <Link
+            to={`/u/${complaint.reposted_by.username}`}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:underline hover:text-slate-800 transition-colors"
+          >
+            <span className="font-bold">{complaint.reposted_by.display_name}</span> reposted
+          </Link>
+        </div>
+      )}
+
       {/* Top Header: Author + Timestamp + Tool Tag + Menu */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -383,6 +415,49 @@ export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDelet
         );
       })()}
 
+      {/* Quoted Complaint Preview (if this is a Quote Repost) */}
+      {complaint.repost_of && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/complaint/${complaint.repost_of!.id}`);
+          }}
+          className="mb-3.5 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5 hover:bg-slate-100/80 hover:border-slate-300 transition-all cursor-pointer group/quote"
+        >
+          <div className="flex items-center gap-2 mb-1.5">
+            <img
+              src={getMediaUrl(complaint.repost_of.author.avatar_url) || `https://api.dicebear.com/7.x/bottts/svg?seed=${complaint.repost_of.author.username}`}
+              alt={complaint.repost_of.author.display_name}
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"
+            />
+            <span className="font-bold text-xs text-slate-900 group-hover/quote:text-orange-600 transition-colors">
+              {complaint.repost_of.author.display_name}
+            </span>
+            <span className="text-[11px] text-slate-400">
+              @{complaint.repost_of.author.username}
+            </span>
+            {complaint.repost_of.tool_tag && (
+              <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">
+                {complaint.repost_of.tool_tag}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-700 line-clamp-3 leading-relaxed whitespace-pre-line mb-1.5">
+            {complaint.repost_of.content}
+          </p>
+          {complaint.repost_of.image_url && (
+            <div className="rounded-xl overflow-hidden max-h-48 border border-slate-200/60 bg-slate-100 mt-2">
+              <img
+                src={getMediaUrl(complaint.repost_of.image_url)}
+                alt="Quoted attachment"
+                className="w-full h-auto max-h-48 object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Topics / Hashtags */}
       {complaint.topics && complaint.topics.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -426,17 +501,65 @@ export const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onDelet
           <span>{complaint.comments_count > 0 ? complaint.comments_count : 'Reply'}</span>
         </Link>
 
-        {/* Repost */}
-        <button
-          onClick={handleRepost}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full hover:bg-emerald-50 transition-colors ${
-            isReposted ? 'text-emerald-600' : 'hover:text-emerald-600'
-          }`}
-          title="Repost"
-        >
-          <Repeat className="w-4 h-4" />
-          <span>{repostsCount > 0 ? repostsCount : 'Repost'}</span>
-        </button>
+        {/* Repost Options Popover */}
+        <div className="relative" ref={repostMenuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!currentUser) {
+                showToast('Please log in to repost complaints', 'info');
+                return;
+              }
+              setIsRepostMenuOpen((prev) => !prev);
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full hover:bg-emerald-50 transition-colors cursor-pointer ${
+              isReposted ? 'text-emerald-600' : 'hover:text-emerald-600'
+            }`}
+            title="Repost options"
+          >
+            <Repeat className="w-4 h-4" />
+            <span>{repostsCount > 0 ? repostsCount : 'Repost'}</span>
+          </button>
+
+          {isRepostMenuOpen && (
+            <div 
+              className="absolute bottom-full left-0 mb-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsRepostMenuOpen(false);
+                  handleRepost(e);
+                }}
+                className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2.5 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+              >
+                <Repeat className={`w-4 h-4 ${isReposted ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <div>
+                  <div className="font-bold text-slate-900">{isReposted ? 'Undo Repost' : 'Repost'}</div>
+                  <div className="text-[10px] text-slate-400 font-normal">Instantly post to your profile</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsRepostMenuOpen(false);
+                  openQuoteModal(complaint);
+                }}
+                className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2.5 text-xs font-semibold text-slate-700 transition-colors border-t border-slate-100 cursor-pointer"
+              >
+                <Quote className="w-4 h-4 text-emerald-500" />
+                <div>
+                  <div className="font-bold text-slate-900">Quote Repost</div>
+                  <div className="text-[10px] text-slate-400 font-normal">Add your thoughts & images</div>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Bookmark */}
         <button

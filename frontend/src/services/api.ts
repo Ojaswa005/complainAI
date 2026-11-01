@@ -114,6 +114,7 @@ export const api = {
     image_url?: string;
     images?: string[];
     topics?: string[];
+    repost_of_id?: string;
   }): Promise<Complaint> => {
     return fetchWithAuth('/posts', {
       method: 'POST',
@@ -232,6 +233,10 @@ export const api = {
 
   getUserLikedPosts: async (username: string): Promise<Complaint[]> => {
     return fetchWithAuth(`/users/${username}/liked`);
+  },
+
+  getUserReposts: async (username: string): Promise<Complaint[]> => {
+    return fetchWithAuth(`/users/${username}/reposts`);
   },
 
   getUserSavedPosts: async (username: string): Promise<Complaint[]> => {
