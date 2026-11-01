@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F8FAFC] text-[#0F172A] font-sans antialiased selection:bg-orange-100 selection:text-orange-900;
+    min-height: 100vh;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Floating animation for hero mascot bubbles */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1deg);
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(7px) rotate(-1.5deg);
+  }
+}
+
+.animate-float-1 {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-reverse 4.5s ease-in-out 0.5s infinite;
+}
+
+.animate-float-3 {
+  animation: float-slow 5s ease-in-out 1s infinite;
+}
+
+.animate-float-4 {
+  animation: float-reverse 4.2s ease-in-out 1.5s infinite;
+}
+
+.animate-float-5 {
+  animation: float-slow 4.8s ease-in-out 2s infinite;
+}
